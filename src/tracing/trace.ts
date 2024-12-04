@@ -44,6 +44,7 @@ export function createTracerProvider(
   otlpHeaders: string,
   workflowRunJobs: WorkflowRunJobs,
   otelServiceName?: string | null | undefined,
+  insecure?: boolean | false,
 ) {
   const serviceName =
     otelServiceName ||
@@ -73,11 +74,13 @@ export function createTracerProvider(
     if (isHttpEndpoint(otlpEndpoint)) {
       exporter = new ProtoOTLPTraceExporter({
         url: otlpEndpoint,
+        insecure: insecure,
         headers: stringToHeader(otlpHeaders),
       });
     } else {
       exporter = new OTLPTraceExporter({
         url: otlpEndpoint,
+        insecure: insecure,
         credentials: grpc.credentials.createSsl(),
         metadata: grpc.Metadata.fromHttp2Headers(stringToHeader(otlpHeaders)),
       });

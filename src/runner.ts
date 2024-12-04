@@ -13,6 +13,8 @@ export async function run() {
   const runId = parseInt(core.getInput("runId") || `${ghContext.runId}`);
   const ghToken =
     core.getInput("githubToken") || process.env["GITHUB_TOKEN"] || "";
+  const insecure =
+    core.getInput("insecure") || process.env["OTEL_EXPORTER_OTLP_INSECURE"] || false;
   const octokit = github.getOctokit(ghToken);
 
   core.info(`Get Workflow Run Jobs for ${runId}`);
@@ -25,6 +27,7 @@ export async function run() {
     otlpHeaders,
     workflowRunJobs,
     otelServiceName,
+    insecure,
   );
 
   try {
