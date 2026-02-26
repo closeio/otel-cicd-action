@@ -24,8 +24,6 @@ We provide sample code for popular platforms. If you feel one is missing, please
 | New Relic                   | [newrelic.yml](.github/workflows/newrelic.yml)   |
 | Honeycomb                   | [honeycomb.yml](.github/workflows/honeycomb.yml) |
 | Dash0                       | [dash0.yml](.github/workflows/dash0.yml)         |
-| Jaeger                      | WIP                                              |
-| Grafana                     | WIP                                              |
 
 ### On workflow_run event
 
@@ -43,7 +41,7 @@ jobs:
   otel-cicd-actions:
     runs-on: ubuntu-latest
     steps:
-      - uses: corentinmusard/otel-cicd-action@v2
+      - uses: corentinmusard/otel-cicd-action@v4
         with:
           otlpEndpoint: grpc://api.honeycomb.io:443/
           otlpHeaders: ${{ secrets.OTLP_HEADERS }}
@@ -64,7 +62,7 @@ jobs:
     needs: [build] # must run when all jobs are completed
     steps:
       - name: Export workflow
-        uses: corentinmusard/otel-cicd-action@v2
+        uses: corentinmusard/otel-cicd-action@v4
         with:
           otlpEndpoint: grpc://api.honeycomb.io:443/
           otlpHeaders: ${{ secrets.OTLP_HEADERS }}
@@ -102,7 +100,7 @@ Attributes are splitted on `,` and then each key/value are splitted on the first
 
 ```yaml
 - name: Export workflow
-  uses: corentinmusard/otel-cicd-action@v2
+  uses: corentinmusard/otel-cicd-action@v4
   with:
     otlpEndpoint: "CHANGE ME"
     otlpHeaders: "CHANGE ME"
