@@ -18,9 +18,10 @@ import {
   CICD_PIPELINE_TASK_TYPE_VALUE_DEPLOY,
   CICD_PIPELINE_TASK_TYPE_VALUE_TEST,
 } from "@opentelemetry/semantic-conventions/incubating";
+import type { Annotation } from "../github";
 import { traceStep } from "./step";
 
-function traceJob(job: components["schemas"]["job"], annotations?: components["schemas"]["check-annotation"][]) {
+function traceJob(job: components["schemas"]["job"], annotations?: Annotation[]) {
   const tracer = trace.getTracer("otel-cicd-action");
 
   if (!job.completed_at) {
@@ -116,7 +117,7 @@ function toTaskResult(conclusion: components["schemas"]["job"]["conclusion"]) {
   }
 }
 
-function annotationsToAttributes(annotations: components["schemas"]["check-annotation"][] | undefined) {
+function annotationsToAttributes(annotations: Annotation[] | undefined) {
   const attributes: Attributes = {};
 
   for (let i = 0; annotations && i < annotations.length; i++) {

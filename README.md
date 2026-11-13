@@ -93,6 +93,8 @@ permissions:
   checks: read # Optional. To read run annotations
 ```
 
+Fetching job annotations uses GitHub's GraphQL API and requires `githubToken` (or the `GITHUB_TOKEN` environment variable), even for public repositories. Annotation fetch failures emit warnings without preventing workflow and job timing/status telemetry from being exported.
+
 ### Adding arbitrary resource attributes
 
 You can use `extraAttributes` to set any additional string resource attributes.
@@ -115,7 +117,7 @@ Attributes are splitted on `,` and then each key/value are splitted on the first
 | otlpEndpoint    | The destination endpoint to export OpenTelemetry traces to. It supports `https://`, `http://` and `grpc://` endpoints. | true     |                                       | `https://api.axiom.co/v1/traces`                                 |
 | otlpHeaders     | Headers to add to the OpenTelemetry exporter .                                                              | true     |                                       | `x-honeycomb-team=YOUR_API_KEY,x-honeycomb-dataset=YOUR_DATASET` |
 | otelServiceName | OpenTelemetry service name                                                                                  | false    | `<The name of the exported workflow>` | `Build CI`                                                       |
-| githubToken     | The repository token with Workflow permissions. Required for private repos                                  | false    |                                       | `${{ secrets.GITHUB_TOKEN }}`                                    |
+| githubToken     | The repository token with Workflow permissions. Required for private repos and job annotations                                  | false    |                                       | `${{ secrets.GITHUB_TOKEN }}`                                    |
 | runId           | Workflow Run ID to Export                                                                                   | false    | env.GITHUB_RUN_ID                     | `${{ github.event.workflow_run.id }}`                            |
 | extraAttributes | Extra resource attributes to add to each span | false |  | extra.attribute=1,key2=value2 |
 

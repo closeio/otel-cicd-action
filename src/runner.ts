@@ -22,16 +22,9 @@ async function fetchGithub(token: string, runId: number) {
   const jobs = await listJobsForWorkflowRun(context, octokit, runId);
 
   core.info("Get job annotations");
-  const jobsId = (jobs ?? []).map((job) => job.id);
-  let jobAnnotations = {};
-  try {
-    jobAnnotations = await getJobsAnnotations(context, octokit, jobsId);
-  } catch (error) {
-    if (isOctokitError(error)) {
-      core.info(`Failed to get job annotations: ${error.message}}`);
-    } else {
-      throw error;
-    }
+  const { annotations: jobAnnotations, warnings } = await getJobsAnnotations(octokit, jobs);
+  for (const warning of warnings) {
+    core.warning(warning);
   }
 
   core.info("Get PRs labels");

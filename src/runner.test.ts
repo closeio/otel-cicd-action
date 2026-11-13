@@ -40,11 +40,17 @@ describe("isOctokitError", () => {
 describe("run", () => {
   let octokit: Octokit;
   let runId: string;
-  // redirect trace output to a file
+  const annotationRequests: unknown[] = [];
+  // Compare exported telemetry with the recorded output.
   let output = "";
 
   beforeAll(async () => {
     octokit = await replayOctokit("run", token);
+    octokit.hook.before("request", (options) => {
+      if (options.url === "/graphql") {
+        annotationRequests.push(options["variables"]);
+      }
+    });
 
     github.getOctokit.mockReturnValue(octokit);
 
@@ -83,6 +89,8 @@ describe("run", () => {
     output = "";
     core.setOutput.mockReset();
     core.setFailed.mockReset();
+    core.warning.mockReset();
+    annotationRequests.length = 0;
   });
 
   it("should run a successful workflow", async () => {
@@ -91,7 +99,9 @@ describe("run", () => {
     runId = "21487811823";
 
     await run();
-    await fs.writeFile("src/__assets__/output_success.txt", output);
+    expect(output).toBe((await fs.readFile("src/__assets__/output_success.txt", "utf8")).replaceAll("\r\n", "\n"));
+    expect(core.warning).not.toHaveBeenCalled();
+    expect(annotationRequests).toEqual([{ ids: ["CR_kwDOKAiibM8AAAAOaaLIQQ"], after: null }]);
 
     expect(core.setFailed).not.toHaveBeenCalled();
     expect(core.setOutput).toHaveBeenCalledWith("traceId", "329e58aa53cec7a2beadd2fd0a85c388");
@@ -103,7 +113,9 @@ describe("run", () => {
     runId = "21458831126";
 
     await run();
-    await fs.writeFile("src/__assets__/output_failed.txt", output);
+    expect(output).toBe((await fs.readFile("src/__assets__/output_failed.txt", "utf8")).replaceAll("\r\n", "\n"));
+    expect(core.warning).not.toHaveBeenCalled();
+    expect(annotationRequests).toEqual([{ ids: ["CR_kwDOKAiibM8AAAAOY_ISSA"], after: null }]);
 
     expect(core.setFailed).not.toHaveBeenCalled();
     expect(core.setOutput).toHaveBeenCalledWith("traceId", "329e58aa53cec7a2beadd2fd0a85c388");
@@ -115,11 +127,53 @@ describe("run", () => {
     runId = "16620109074";
 
     await run();
-    await fs.writeFile("src/__assets__/output_cancelled.txt", output);
+    expect(output).toBe((await fs.readFile("src/__assets__/output_cancelled.txt", "utf8")).replaceAll("\r\n", "\n"));
+    expect(core.warning).not.toHaveBeenCalled();
+    expect(annotationRequests).toEqual([
+      {
+        ids: [
+          "CR_kwDOKtjdoc8AAAAK8r33uw",
+          "CR_kwDOKtjdoc8AAAAK8r33xw",
+          "CR_kwDOKtjdoc8AAAAK8r33zQ",
+          "CR_kwDOKtjdoc8AAAAK8r332g",
+          "CR_kwDOKtjdoc8AAAAK8r5xBQ",
+        ],
+        after: null,
+      },
+    ]);
 
     expect(core.setFailed).not.toHaveBeenCalled();
     expect(core.setOutput).toHaveBeenCalledWith("traceId", "329e58aa53cec7a2beadd2fd0a85c388");
   }, 10_000);
+
+  it.each([
+    { errors: [{ message: "API rate limit exceeded", type: "RATE_LIMITED" }] },
+    { data: { nodes: [null] } },
+  ])("exports base telemetry and warns on annotation failures (%j)", async (data) => {
+    process.env["GITHUB_REPOSITORY"] = "biomejs/biome";
+    runId = "21487811823";
+    const failingOctokit = await replayOctokit("run", token);
+    failingOctokit.hook.wrap("request", async (request, options) => {
+      const response = await request(options);
+      if (options.url === "/graphql") {
+        expect(options["variables"]).toEqual({ ids: ["CR_kwDOKAiibM8AAAAOaaLIQQ"], after: null });
+        return { ...response, data };
+      }
+      return response;
+    });
+    github.getOctokit.mockReturnValueOnce(failingOctokit);
+
+    await run();
+
+    expect(output).toBe((await fs.readFile("src/__assets__/output_success.txt", "utf8")).replaceAll("\r\n", "\n"));
+    expect(core.setFailed).not.toHaveBeenCalled();
+    expect(core.setOutput).toHaveBeenCalledWith("traceId", "329e58aa53cec7a2beadd2fd0a85c388");
+    expect(core.warning).toHaveBeenCalledTimes(1);
+    expect(core.warning).toHaveBeenCalledWith(expect.stringContaining("Failed to get job annotations for job"));
+    expect(core.warning).toHaveBeenCalledWith(
+      expect.stringContaining("errors" in data ? "API rate limit exceeded" : "Missing check run annotations")
+    );
+  });
 
   it("should fail", async () => {
     // https://github.com/corentinmusard/otel-cicd-action/actions/runs/111
