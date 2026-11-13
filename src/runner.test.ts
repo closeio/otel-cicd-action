@@ -99,7 +99,7 @@ describe("run", () => {
     runId = "21487811823";
 
     await run();
-    expect(output).toBe(await fs.readFile("src/__assets__/output_success.txt", "utf8"));
+    expect(output).toBe((await fs.readFile("src/__assets__/output_success.txt", "utf8")).replaceAll("\r\n", "\n"));
     expect(core.warning).not.toHaveBeenCalled();
     expect(annotationRequests).toEqual([{ ids: ["CR_kwDOKAiibM8AAAAOaaLIQQ"], after: null }]);
 
@@ -113,7 +113,7 @@ describe("run", () => {
     runId = "21458831126";
 
     await run();
-    expect(output).toBe(await fs.readFile("src/__assets__/output_failed.txt", "utf8"));
+    expect(output).toBe((await fs.readFile("src/__assets__/output_failed.txt", "utf8")).replaceAll("\r\n", "\n"));
     expect(core.warning).not.toHaveBeenCalled();
     expect(annotationRequests).toEqual([{ ids: ["CR_kwDOKAiibM8AAAAOY_ISSA"], after: null }]);
 
@@ -127,7 +127,7 @@ describe("run", () => {
     runId = "16620109074";
 
     await run();
-    expect(output).toBe(await fs.readFile("src/__assets__/output_cancelled.txt", "utf8"));
+    expect(output).toBe((await fs.readFile("src/__assets__/output_cancelled.txt", "utf8")).replaceAll("\r\n", "\n"));
     expect(core.warning).not.toHaveBeenCalled();
     expect(annotationRequests).toEqual([
       {
@@ -165,7 +165,7 @@ describe("run", () => {
 
     await run();
 
-    expect(output).toBe(await fs.readFile("src/__assets__/output_success.txt", "utf8"));
+    expect(output).toBe((await fs.readFile("src/__assets__/output_success.txt", "utf8")).replaceAll("\r\n", "\n"));
     expect(core.setFailed).not.toHaveBeenCalled();
     expect(core.setOutput).toHaveBeenCalledWith("traceId", "329e58aa53cec7a2beadd2fd0a85c388");
     expect(core.warning).toHaveBeenCalledTimes(1);
