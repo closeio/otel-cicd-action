@@ -18,12 +18,13 @@ import {
   CICD_PIPELINE_RUN_STATE_VALUE_FINALIZING,
   CICD_PIPELINE_RUN_STATE_VALUE_PENDING,
 } from "@opentelemetry/semantic-conventions/incubating";
+import type { Annotation } from "../github";
 import { traceJob } from "./job";
 
 function traceWorkflowRun(
   workflowRun: components["schemas"]["workflow-run"],
   jobs: components["schemas"]["job"][],
-  jobAnnotations: Record<number, components["schemas"]["check-annotation"][]>,
+  jobAnnotations: Record<number, Annotation[]>,
   prLabels: Record<number, string[]>
 ) {
   const tracer = trace.getTracer("otel-cicd-action");

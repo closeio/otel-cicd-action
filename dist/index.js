@@ -28038,6 +28038,14 @@ function error$1(message, properties = {}) {
     issueCommand('error', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
 }
 /**
+ * Adds a warning issue
+ * @param message warning issue message. Errors will be converted to string via toString()
+ * @param properties optional properties to add to the annotation.
+ */
+function warning(message, properties = {}) {
+    issueCommand('warning', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
+}
+/**
  * Writes info to log with console.log.
  * @param message info message
  */
@@ -60521,18 +60529,72 @@ async function listJobsForWorkflowRun(context, octokit, runId) {
         per_page: 100,
     });
 }
-async function getJobsAnnotations(context, octokit, jobIds) {
-    const annotations = {};
-    for (const jobId of jobIds) {
-        annotations[jobId] = await listAnnotations(context, octokit, jobId);
+const annotationsQuery = `
+  query JobAnnotations($ids: [ID!]!, $after: String) {
+    nodes(ids: $ids) {
+      ... on CheckRun {
+        id
+        annotations(first: 100, after: $after) {
+          nodes { annotationLevel message }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
     }
-    return annotations;
+  }
+`;
+async function getJobsAnnotations(octokit, jobs) {
+    const annotations = {};
+    const warnings = [];
+    for (let offset = 0; offset < jobs.length; offset += 100) {
+        const batch = jobs.slice(offset, offset + 100);
+        let response;
+        try {
+            response = await octokit.graphql(annotationsQuery, {
+                ids: batch.map((job) => job.node_id),
+                after: null,
+            });
+        }
+        catch (error) {
+            warnings.push(`Failed to get job annotations for jobs ${batch.map((job) => job.id).join(", ")}: ${String(error)}`);
+            continue;
+        }
+        for (const [index, job] of batch.entries()) {
+            annotations[job.id] = [];
+            try {
+                await listAnnotations(octokit, job, response.nodes?.[index], annotations[job.id]);
+            }
+            catch (error) {
+                warnings.push(`Failed to get job annotations for job ${job.id}: ${String(error)}`);
+            }
+        }
+    }
+    return { annotations, warnings };
 }
-async function listAnnotations(context, octokit, checkRunId) {
-    return await octokit.paginate(octokit.rest.checks.listAnnotations, {
-        ...context.repo,
-        check_run_id: checkRunId,
-    });
+async function listAnnotations(octokit, job, firstNode, annotations) {
+    let node = firstNode;
+    const cursors = new Set();
+    for (;;) {
+        if (!node || node.id !== job.node_id || !node.annotations) {
+            throw new Error(`Missing check run annotations (${job.node_id})`);
+        }
+        const { nodes, pageInfo } = node.annotations;
+        annotations.push(...nodes.map((annotation) => ({
+            annotation_level: annotation.annotationLevel.toLowerCase(),
+            message: annotation.message,
+        })));
+        if (!pageInfo.hasNextPage) {
+            break;
+        }
+        if (!pageInfo.endCursor || cursors.has(pageInfo.endCursor)) {
+            throw new Error("Invalid annotation pagination cursor");
+        }
+        cursors.add(pageInfo.endCursor);
+        const next = await octokit.graphql(annotationsQuery, {
+            ids: [job.node_id],
+            after: pageInfo.endCursor,
+        });
+        node = next.nodes?.[0];
+    }
 }
 async function getPRsLabels(context, octokit, prNumbers) {
     const labels = {};
@@ -117906,18 +117968,9 @@ async function fetchGithub(token, runId) {
     info("Get jobs");
     const jobs = await listJobsForWorkflowRun(context$1, octokit, runId);
     info("Get job annotations");
-    const jobsId = (jobs ?? []).map((job) => job.id);
-    let jobAnnotations = {};
-    try {
-        jobAnnotations = await getJobsAnnotations(context$1, octokit, jobsId);
-    }
-    catch (error) {
-        if (isOctokitError(error)) {
-            info(`Failed to get job annotations: ${error.message}}`);
-        }
-        else {
-            throw error;
-        }
+    const { annotations: jobAnnotations, warnings } = await getJobsAnnotations(octokit, jobs);
+    for (const warning$1 of warnings) {
+        warning(warning$1);
     }
     info("Get PRs labels");
     const prNumbers = (workflowRun.pull_requests ?? []).map((pr) => pr.number);
